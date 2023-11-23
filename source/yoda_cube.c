@@ -193,14 +193,14 @@ int main(void) {
 
 
     scaleArray(cube, 8*3, 30);
-    /*
+    
     translateArray(cube, 8*3, (guVector){10, 0, 0}); //move cube
-    f32 *array = aligned_alloc(16 * sizeof(f32)*3, 64);
-    memcpy(array, cube, 8 * sizeof(f32)*3); //move cube into vertex array
+    s16 *array = aligned_alloc(16 * sizeof(s16)*3, 64);
+    memcpy(array, cube, 8 * sizeof(s16)*3); //move cube into vertex array
     //scaleArray(array, 8*3, 30); //make the shapes larger
     translateArray(cube, 8*3, (guVector){-150, 0, 0}); //move cube back
-    memcpy(array + 3*8, cube, 8 * sizeof(f32)*3);
-    */
+    memcpy(array + 3*8, cube, 8 * sizeof(s16)*3);
+    
 
     TPL_OpenTPLFromMemory(&tpl, (void *)textures_tpl, textures_tpl_size);
     TPL_GetTexture(&tpl, yoda, &texObj);
@@ -209,13 +209,13 @@ int main(void) {
     GX_SetVtxAttrFmt(GX_VTXFMT0, GX_VA_TEX0, GX_TEX_ST, GX_F32, 0);
     GX_SetVtxAttrFmt(GX_VTXFMT0, GX_VA_POS, GX_POS_XYZ, GX_S16, 0);
 	GX_SetVtxAttrFmt(GX_VTXFMT0, GX_VA_CLR0, GX_CLR_RGBA, GX_RGBA8, 0);
-    GX_SetArray(GX_VA_POS, cube, 3*sizeof(s16)); //put the cube in pos memory
+    GX_SetArray(GX_VA_POS, array, 3*sizeof(s16)); //put the cube in pos memory
 	GX_SetArray(GX_VA_CLR0, colors, 4*sizeof(u8)); //put the colors in color memory
     GX_SetArray(GX_VA_TEX0, (void *)textures_tpl, textures_tpl_size);
     
     //GX_SetArray(GX_VA_POS, cube, 3*sizeof(s16));
 
-    DCFlushRange(cube, 65536);
+    DCFlushRange(array, 65536);
 	DCFlushRange(colors, 65536);
     DCFlushRange((void *)textures_tpl, 65536);
     
@@ -323,7 +323,7 @@ void drawModel(Mtx v, Camera *cam) {
     GX_LoadPosMtxImm(modelview, GX_PNMTX0);
 
     //will draw whatever is in POS_VA
-    GX_Begin(GX_QUADS, GX_VTXFMT0, 24);
+    GX_Begin(GX_QUADS, GX_VTXFMT0, 48);
     //maybe make an array of draw functions that get called here
         /*
         draw_quad(0, 3, 2, 1, 0); //top face
@@ -341,14 +341,14 @@ void drawModel(Mtx v, Camera *cam) {
 		drawQuad(2, 3, 6, 5, 4); //front face
 		drawQuad(4, 7, 6, 5, 5); //bottom face
         
-        /*
+        
         drawQuad(0+8, 3+8, 2+8, 1+8, 0); //top face
 		drawQuad(0+8, 7+8, 6+8, 3+8, 1); //left face
 		drawQuad(0+8, 1+8, 4+8, 7+8, 2); //back face
 		drawQuad(1+8, 2+8, 5+8, 4+8, 3); //right face
 		drawQuad(2+8, 3+8, 6+8, 5+8, 4); //front face
 		drawQuad(4+8, 7+8, 6+8, 5+8, 5); //bottom face
-        */
+        
 
     GX_End();
 }
