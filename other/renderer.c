@@ -1,3 +1,4 @@
+#pragma once
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -8,8 +9,8 @@
 
 typedef guVector Vec3;
 
-typedef struct _Object Object;
-typedef struct _Object {
+typedef struct _object Object;
+typedef struct _object {
     Object *next;
     Vec3 pos;
     Vec3 scale;
@@ -19,7 +20,7 @@ typedef struct _Object {
     void *vi; //memory address for where it should be in the worldspace buffer
     int id;
     s16 *va; //pointer to vertex array
-}Object;
+} Object;
 
 //worldspace
 typedef struct _worldspace {
@@ -28,13 +29,13 @@ typedef struct _worldspace {
     u32 index;
     u32 objcount;
     u32 vtxcount;
-}Worldspace;
+} Worldspace;
 
 static u32 curr_fb = 0;
 GXTexObj texObj; //texture object
 TPLFile tpl; //tpl file
 
-typedef struct _Camera {
+typedef struct _camera {
     Vec3 pos;
     Vec3 up;
     Vec3 view;
@@ -51,23 +52,41 @@ Camera newCamera(Vec3 pos, Vec3 up, Vec3 view) {
 }
 
 void moveCamera(Camera *cam, int stickX, int stickY) {
-    //cameras view is {0.0, 0.0, -1.0};
+    //currently no look up or down
     cam->pos.x += -PAD_StickX(0)*cosf(DegToRad(cam->rot))/20.0 - PAD_StickY(0)*sinf(DegToRad(cam->rot))/20.0;
     cam->pos.z += -PAD_StickX(0)*sinf(DegToRad(cam->rot))/20.0 + PAD_StickY(0)*cosf(DegToRad(cam->rot))/20.0;
 }
 
 typedef struct _renderer {
     Mtx model, modelview;
+    Mtx44 view;
     Camera *cam;
 }Renderer;
 
-void renRender(Renderer *ren, Mtx44 view, Camera *cam) {
+void rDraw(Renderer *ren, Mtx44 view, Camera *cam) {
     guVector axis = {0, 1, 0};
     guMtxIdentity(ren->model);
     guMtxRotAxisDeg(view, &axis, cam->rot);
     guMtxTransApply(ren->model, ren->model, ren->cam->pos.x, ren->cam->pos.y, ren->cam->pos.z);
     guMtxConcat(view, ren->model, ren->modelview);
     GX_LoadPosMtxImm(ren->modelview, GX_PNMTX0);
+}
+
+
+void rDraw2(Renderer *ren, Worldspace *ws) {
+    guVector axis = {0, 1, 0};
+    guMtxIdentity(ren->model);
+    guMtxRotAxisDeg(ren->view, &axis, ren->cam->rot);
+    guMtxTransApply(ren->model, ren->model, ren->cam->pos.x, ren->cam->pos.y, ren->cam->pos.z);
+    guMtxConcat(ren->view, ren->model, ren->modelview);
+    GX_LoadPosMtxImm(ren->modelview, GX_PNMTX0);
+    
+    //which vtxfmt to use could be set in the renderer struct
+    GX_Begin(GX_QUADS, GX_VTXFMT0, ws->vtxcount);
+        for (int i = 0; i < ws->vtxcount; i++) {
+            //need an index buffer to tell which indices to use to draw a thing    
+        }
+    GX_End();
 }
 
 //scales an object
@@ -139,7 +158,7 @@ void wsUpdate(Worldspace *ws) {
 }
 
 void *GetLastObj(Object *obj) {
-    Object *poop;
+    Object *poop = NULL;
     while (poop != NULL) {
         poop = poop->next;
     }
