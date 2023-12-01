@@ -19,7 +19,7 @@ typedef struct _object {
     int vc; //count of vertices
     void *vi; //memory address for where it should be in the worldspace buffer
     int id;
-    s16 *va; //pointer to vertex array
+    f32 *va; //pointer to vertex array
 } Object;
 
 //worldspace
@@ -72,6 +72,8 @@ void rDraw(Renderer *ren, Mtx44 view, Camera *cam) {
     GX_LoadPosMtxImm(ren->modelview, GX_PNMTX0);
 }
 
+//index buffer
+
 
 void rDraw2(Renderer *ren, Worldspace *ws) {
     guVector axis = {0, 1, 0};
@@ -91,6 +93,12 @@ void rDraw2(Renderer *ren, Worldspace *ws) {
 
 //scales an object
 void scaleArray(s16* va, size_t len, s16 scale) {
+    for (int i = 0; i < len*3; i++) {
+        va[i] = scale * va[i];
+    }
+}
+
+void scaleArrayf32(f32* va, size_t len, f32 scale) {
     for (int i = 0; i < len*3; i++) {
         va[i] = scale * va[i];
     }
@@ -120,18 +128,46 @@ void wsAppend(Worldspace *ws, Object *obj) {
     if (lastObj != NULL) {
         lastObj->next = obj;
     }
+    
     //make a new temporary array to avoid changing the original
-    s16 *new = malloc(3*obj->vc*sizeof(s16));
-    memcpy(new, obj->va, 3*obj->vc*sizeof(s16));
-    translateArray(new, obj->vc, obj->pos);
-    scaleArray(new, obj->vc, obj->scale.x); //just scale by x for now cause its easier
+    f32 *new = malloc(3*obj->vc*sizeof(f32));
+    memcpy(new, obj->va, 3*obj->vc*sizeof(f32));
+    //translateArray(new, obj->vc, obj->pos);
+    scaleArrayf32(new, obj->vc, obj->scale.x); //just scale by x for now cause its easier
     ws->objarray[ws->objcount] = obj; //this might work idk
     
     //copy object to worldspace
     memcpy((void *)ws->worldspace + (int)ws->index, new, 3*obj->vc*sizeof(s16));
     obj->vi = (void *)ws->worldspace+ws->index;
     obj->id = objId++;
-    ws->index += obj->vc*sizeof(s16)*3;
+    ws->index += obj->vc*sizeof(f32)*3;
+    ws->objcount++;
+    ws->vtxcount += obj->vc*3;
+
+    lastObj = obj;
+
+    free(new);
+}
+
+//append object to worldspace without translation or scaling
+void wsRawAppend(Worldspace *ws, Object *obj) {
+    static Object *lastObj; //probably dont need this
+    static int objId;
+    if (lastObj != NULL) {
+        lastObj->next = obj;
+    }
+    //make a new temporary array to avoid changing the original
+    f32 *new = malloc(3*obj->vc*sizeof(f32));
+    memcpy(new, obj->va, 3*obj->vc*sizeof(f32));
+    //translateArray(new, obj->vc, obj->pos);
+    //scaleArray(new, obj->vc, obj->scale.x); //just scale by x for now cause its easier
+    ws->objarray[ws->objcount] = obj; //this might work idk
+    
+    //copy object to worldspace
+    memcpy((void *)ws->worldspace + (int)ws->index, new, 3*obj->vc*sizeof(f32));
+    obj->vi = (void *)ws->worldspace+ws->index;
+    obj->id = objId++;
+    ws->index += obj->vc*sizeof(f32)*3;
     ws->objcount++;
     ws->vtxcount += obj->vc*3;
 
@@ -142,16 +178,16 @@ void wsAppend(Worldspace *ws, Object *obj) {
 
 void wsUpdate(Worldspace *ws) {
     Object *obj = ws->objarray[0]; //start with first object
-    s16 *new = malloc(3*obj->vc*sizeof(s16)); //new temporary vertex array
-    memcpy(new, obj->va, 3*obj->vc*sizeof(s16)); //copy original model to new array
+    f32 *new = malloc(3*obj->vc*sizeof(f32)); //new temporary vertex array
+    memcpy(new, obj->va, 3*obj->vc*sizeof(f32)); //copy original model to new array
     int index = 0;
     for (int i = 0; i < ws->objcount; i++) {
         obj = ws->objarray[i];
-        translateArray(new, obj->vc, obj->pos); 
-        scaleArray(new, obj->vc, obj->scale.x); //just scale by x for now cause its easier
+        //translateArray(new, obj->vc, obj->pos); 
+        scaleArrayf32(new, obj->vc, obj->scale.x); //just scale by x for now cause its easier
         //ws->objarray[i] = obj;
-        memcpy((void *)ws->worldspace + index, new, 3*obj->vc*sizeof(s16));
-        index += obj->vc*sizeof(s16)*3;
+        memcpy((void *)ws->worldspace + index, new, 3*obj->vc*sizeof(f32));
+        index += obj->vc*sizeof(f32)*3;
 
     }
     free(new);
@@ -213,13 +249,22 @@ void wsRemove(Worldspace *ws, Object *obj) {
     ws->objcount--;
 }
 
-//append an object to worldspace without scaling or translation
-void wsRawAppend(Worldspace *ws, Object *obj) {
-    s16 *new = malloc(obj->vc*sizeof(s16));
-    memcpy(new, obj->va, obj->vc*sizeof(s16));
-    memcpy(ws->worldspace + ws->index, new, obj->vc*sizeof(s16));
-    ws->index += obj->vc*sizeof(s16);
-    ws->objcount++;
-    ws->vtxcount += obj->vc;
-    free(new);
+/*
+    method GX_DISABLE, GX_DIRECT, GX_INDEX8, GX_INDEX16
+    dimensions GX_TEX_S, GX_TEX_ST
+    size GX_S8, GX_S16, GX_F32
+    texgens
+*/
+void enableTextures(int method, int dimensions, int size, int texgens) {
+    GX_SetVtxDesc(GX_VA_TEX0, method);
+    GX_SetVtxAttrFmt(GX_VTXFMT0, GX_VA_TEX0, dimensions, size, 0);
+    GX_SetNumTexGens(texgens);
+    GX_SetTexCoordGen(GX_TEXCOORD0, GX_TG_MTX2x4, GX_TG_TEX0, GX_IDENTITY);
+}
+
+void enableColors(int method, int dimensions, int size, int texgens) {
+    GX_SetVtxDesc(GX_VA_CLR0, method);
+    GX_SetVtxAttrFmt(GX_VTXFMT0, GX_VA_TEX0, dimensions, size, 0);
+    GX_SetNumTexGens(texgens);
+    GX_SetTexCoordGen(GX_TEXCOORD0, GX_TG_MTX2x4, GX_TG_TEX0, GX_IDENTITY);
 }
