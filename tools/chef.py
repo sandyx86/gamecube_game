@@ -37,6 +37,11 @@ def main():
             [output.writelines(tx.split("/")[1] + ", ") for idx in f for tx in idx[1:]]
             output.writelines({'};'})
 
+            output.writelines(f"\n#define {name.lower()}_vtxcnt {len(v)}")
+            output.writelines(f"\n#define {name.lower()}_idxcnt {len([idx for idx in f for tx in idx[1:]])}")
+            output.writelines(f"\n#define {name.lower()}_tx_idxcnt {len([idx for idx in f for tx in idx[1:]])}")
+
+
 
 if __name__ == "__main__":
     main()
