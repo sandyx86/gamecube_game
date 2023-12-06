@@ -17,10 +17,6 @@ typedef struct tri {
     Vertex vtx[3];
 } Triangle;
 
-typedef struct quad {
-    Vertex vtx[4];
-} Quadrangle;
-
 typedef struct mdl {
     Triangle *triptr;
     int tricnt;
@@ -66,13 +62,13 @@ Model buildModel(f32 *vtx, f32 *tx, int *idx, int *tx_idx, int idxcnt) {
 void drawTriangle(Triangle *tri) {
     GX_Begin(GX_TRIANGLES, GX_VTXFMT0, 3);
     GX_Position3f32(tri->vtx[0].x, tri->vtx[0].y, tri->vtx[0].z);
-    GX_TexCoord2f32(tri->vtx[0].u, -tri->vtx[0].v);
+    GX_TexCoord2f32(tri->vtx[0].u, tri->vtx[0].v);
     //GX_Color4u8(tri->vtx[0].x, tri->vtx[0].y, tri->vtx[0].z, 255);
     GX_Position3f32(tri->vtx[1].x, tri->vtx[1].y, tri->vtx[1].z);
-    GX_TexCoord2f32(tri->vtx[1].u, -tri->vtx[1].v);
+    GX_TexCoord2f32(tri->vtx[1].u, tri->vtx[1].v);
     //GX_Color4u8(tri->vtx[1].x, tri->vtx[1].y, tri->vtx[1].z, 255);
     GX_Position3f32(tri->vtx[2].x, tri->vtx[2].y, tri->vtx[2].z);
-    GX_TexCoord2f32(tri->vtx[2].u, -tri->vtx[2].v);
+    GX_TexCoord2f32(tri->vtx[2].u, tri->vtx[2].v);
     //GX_Color4u8(tri->vtx[2].x, tri->vtx[2].y, tri->vtx[2].z, 255);
 
     GX_End();
@@ -114,11 +110,9 @@ void drawObject(Object *obj) {
 
 //worldspace
 typedef struct _worldspace {
-    f32 *worldspace; //final worldspace
-
-    u32 index;
-    u32 objcount;
-    u32 vtxcount;
+    Triangle *tris;
+    int tricnt;
+    u32 idx;
 } Worldspace;
 
 static u32 curr_fb = 0;
@@ -167,29 +161,22 @@ void LoadModelView(Renderer *ren, Mtx44 view, Camera *cam) {
 
 //initialize worldspace buffer
 void wsInit(Worldspace *ws, size_t s) {
-    ws->worldspace = malloc(s);
-    memset(ws->worldspace, 0, s);
-    ws->objcount = 0;
-    ws->vtxcount = 0;
-    ws->index = 0;
+    ws->tris = malloc(s);
+    ws->idx = 0;
 }
 
-/*
-    method GX_DISABLE, GX_DIRECT, GX_INDEX8, GX_INDEX16
-    dimensions GX_TEX_S, GX_TEX_ST
-    size GX_S8, GX_S16, GX_F32
-    texgens
-*/
-void enableTextures(int method, int dimensions, int size, int texgens) {
-    GX_SetVtxDesc(GX_VA_TEX0, method);
-    GX_SetVtxAttrFmt(GX_VTXFMT0, GX_VA_TEX0, dimensions, size, 0);
-    GX_SetNumTexGens(texgens);
-    GX_SetTexCoordGen(GX_TEXCOORD0, GX_TG_MTX2x4, GX_TG_TEX0, GX_IDENTITY);
-}
-
-void enableColors(int method, int dimensions, int size, int texgens) {
-    GX_SetVtxDesc(GX_VA_CLR0, method);
-    GX_SetVtxAttrFmt(GX_VTXFMT0, GX_VA_TEX0, dimensions, size, 0);
-    GX_SetNumTexGens(texgens);
-    GX_SetTexCoordGen(GX_TEXCOORD0, GX_TG_MTX2x4, GX_TG_TEX0, GX_IDENTITY);
+void wsAppend(Worldspace *ws, Object *obj) {
+    Triangle *new;
+    new = malloc(obj->mdl->tricnt * sizeof(Triangle));
+    memcpy(new, obj->mdl->triptr, obj->mdl->tricnt * sizeof(Triangle));
+    
+    for (int i = 0; i < obj->mdl->tricnt; i++) {
+        translateTri(&new[i], obj->pos);
+    }
+    
+    memcpy((void *)ws->tris + ws->idx, new, obj->mdl->tricnt * sizeof(Triangle));
+    
+    ws->tricnt += obj->mdl->tricnt;
+    ws->idx += obj->mdl->tricnt * sizeof(Triangle);
+    free(new);
 }

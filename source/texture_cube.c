@@ -10,27 +10,12 @@
 #include "textures.h"
 
 #include "../other/renderer.c"
-#include "../other/redguard.c"
+#include "../other/cylinder.c"
 
 #define DEFAULT_FIFO_SIZE (256 * 1024)
 #define VTX_BUFFER_SIZE 10 * sizeof(s16) * 3 * 8 // 10 tests worth
 static void *xfb[2] = {NULL, NULL}; // external framebuffer
 GXRModeObj *rmode;
-
-/*
-// original test
-s16 test[] ATTRIBUTE_ALIGN(32) = {
-    // x y z
-    -1, 1, -1,  // 0
-    1, 1, -1,   // 1
-    1, 1, 1,    // 2
-    -1, 1, 1,   // 3
-    1, -1, -1,  // 4
-    1, -1, 1,   // 5
-    -1, -1, 1,  // 6
-    -1, -1, -1, // 7
-};
-*/
 
 int main(void) {
     // int32_t xfbHeight;
@@ -91,7 +76,7 @@ int main(void) {
     //GX_SetVtxDesc(GX_VA_TEX0MTXIDX, GX_DIRECT);
 
     TPL_OpenTPLFromMemory(&tpl, (void *)textures_tpl, textures_tpl_size);
-    TPL_GetTexture(&tpl, cmp, &texObj); // load tpl into a texture object
+    TPL_GetTexture(&tpl, can, &texObj); // load tpl into a texture object
     //GX_InitTexObj(&texObj, textures_tpl, 32, 32, GX_TF_RGBA8, GX_REPEAT, GX_REPEAT, GX_FALSE);
     GX_InitTexObjWrapMode(&texObj, GX_REPEAT, GX_REPEAT);
     GX_LoadTexObj(&texObj, GX_TEXMAP0);    // load texture object into register
@@ -102,7 +87,7 @@ int main(void) {
 
     GX_SetArray(GX_VA_TEX0, (void *)textures_tpl, 3 * sizeof(f32));
 
-    DCFlushRange(redguard_vtx, 65536);
+    DCFlushRange(cylinder_vtx, 65536);
     DCFlushRange((void *)textures_tpl, 65536);
 
     GX_SetNumChans(1);   // set number of color channels that are output to TEV stages
@@ -118,7 +103,19 @@ int main(void) {
     ren.cam = &cam;
     
     //Model the_model = buildModel(tri_vtx, tri_tx, tri_idx, tri_tx_idx, tri_idxcnt);
-    Model the_model = buildModel(redguard_vtx, redguard_tx, redguard_idx, redguard_tx_idx, redguard_idxcnt);
+    Model the_model = buildModel(cylinder_vtx, cylinder_tx, cylinder_idx, cylinder_tx_idx, cylinder_idxcnt);
+    Object the_object;
+    the_object.mdl = &the_model;
+    the_object.pos = (Vec3){0.0, 0.0, 0.0};
+
+    Worldspace ws;
+    wsInit(&ws, 1 << 16);
+    
+    wsAppend(&ws, &the_object);
+    the_object.pos = (Vec3){0.0, 24.0, 0.0};
+    wsAppend(&ws, &the_object);
+    the_object.pos = (Vec3){13.0, 0.0, 0.0};
+    wsAppend(&ws, &the_object);
     
     // game loop
     while (true) {
@@ -146,7 +143,7 @@ int main(void) {
         moveCamera(&cam, stickX, stickY);
         LoadModelView(&ren, view, &cam);
         
-        drawModel(&the_model);
+        drawModel(&ws);
      
         GX_SetZMode(GX_TRUE, GX_LEQUAL, GX_TRUE);
         GX_SetColorUpdate(GX_TRUE);
