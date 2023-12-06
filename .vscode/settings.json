@@ -1,5 +1,6 @@
 {
     "files.associations": {
-        "textures.h": "c"
+        "textures.h": "c",
+        "tpl.h": "c"
     }
 }

@@ -22,6 +22,7 @@ SOURCES		:=	source
 DATA		:=
 TEXTURES	:=	textures 
 INCLUDES	:=
+MODELS		:= 	models
 
 #---------------------------------------------------------------------------------
 # options for code generation
@@ -105,14 +106,13 @@ export OUTPUT	:=	$(CURDIR)/$(TARGET)
 $(BUILD):
 	@[ -d $@ ] || mkdir -p $@
 	@$(MAKE) --no-print-directory -C $(BUILD) -f $(CURDIR)/Makefile
-	start dolphin --debugger --exec=gc_homebrew.elf
 
 #---------------------------------------------------------------------------------
 clean:
 	@echo clean ...
 	@rm -fr $(BUILD) $(OUTPUT).elf $(OUTPUT).dol
 
-run:
+r:
 	start dolphin --debugger --exec=gc_homebrew.elf
 
 #---------------------------------------------------------------------------------
