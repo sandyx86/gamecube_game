@@ -1,6 +1,7 @@
 {
     "files.associations": {
         "textures.h": "c",
-        "tpl.h": "c"
+        "tpl.h": "c",
+        "gccore.h": "c"
     }
 }

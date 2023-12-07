@@ -9,6 +9,22 @@
 
 typedef guVector Vec3;
 
+typedef struct _camera {
+    Vec3 pos;
+    Vec3 up;
+    Vec3 view;
+    float rot; //pointer to rotation
+} Camera;
+
+typedef struct _renderer {
+    Mtx model, modelview;
+    Mtx44 view;
+    Camera *cam;
+    //int vtxfmt;
+}Renderer;
+
+int vtxfmt = 0;
+
 typedef struct vtx {
     f32 x,y,z,u,v;
 } Vertex;
@@ -26,7 +42,7 @@ typedef struct _obj {
     Model *mdl;
     Vec3 pos;
     Vec3 scale;
-    GXTexObj *txt;
+    //GXTexObj *txt;
 } Object;
 
 Vertex buildVertex(f32 *vtx, f32 *tx, int *idx, int *tx_idx, int n) {
@@ -60,19 +76,19 @@ Model buildModel(f32 *vtx, f32 *tx, int *idx, int *tx_idx, int idxcnt) {
 }
 
 void drawTriangle(Triangle *tri) {
-    GX_Begin(GX_TRIANGLES, GX_VTXFMT0, 3);
+    GX_Begin(GX_TRIANGLES, vtxfmt, 3);
     GX_Position3f32(tri->vtx[0].x, tri->vtx[0].y, tri->vtx[0].z);
-    GX_TexCoord2f32(tri->vtx[0].u, tri->vtx[0].v);
+    GX_TexCoord2f32(tri->vtx[0].u, -tri->vtx[0].v);
     //GX_Color4u8(tri->vtx[0].x, tri->vtx[0].y, tri->vtx[0].z, 255);
     GX_Position3f32(tri->vtx[1].x, tri->vtx[1].y, tri->vtx[1].z);
-    GX_TexCoord2f32(tri->vtx[1].u, tri->vtx[1].v);
+    GX_TexCoord2f32(tri->vtx[1].u, -tri->vtx[1].v);
     //GX_Color4u8(tri->vtx[1].x, tri->vtx[1].y, tri->vtx[1].z, 255);
     GX_Position3f32(tri->vtx[2].x, tri->vtx[2].y, tri->vtx[2].z);
-    GX_TexCoord2f32(tri->vtx[2].u, tri->vtx[2].v);
+    GX_TexCoord2f32(tri->vtx[2].u, -tri->vtx[2].v);
     //GX_Color4u8(tri->vtx[2].x, tri->vtx[2].y, tri->vtx[2].z, 255);
-
     GX_End();
 }
+
 
 void translateTri(Triangle *tri, Vec3 vec) {
     tri->vtx[0].x += vec.x;
@@ -108,23 +124,18 @@ void drawObject(Object *obj) {
     drawModel(obj->mdl);
 }
 
-//worldspace
+//worldspace model
 typedef struct _worldspace {
+    //one big triangle mesh probably for things that dont move like the ground
     Triangle *tris;
     int tricnt;
+ 
     u32 idx;
 } Worldspace;
 
 static u32 curr_fb = 0;
 GXTexObj texObj; //texture object
 TPLFile tpl; //tpl file
-
-typedef struct _camera {
-    Vec3 pos;
-    Vec3 up;
-    Vec3 view;
-    float rot; //pointer to rotation
-} Camera;
 
 Camera newCamera(Vec3 pos, Vec3 up, Vec3 view) {
     return (Camera){
@@ -141,17 +152,11 @@ void moveCamera(Camera *cam, int stickX, int stickY) {
     cam->pos.z += -PAD_StickX(0)*sinf(DegToRad(cam->rot))/20.0 + PAD_StickY(0)*cosf(DegToRad(cam->rot))/20.0;
 }
 
-typedef struct _renderer {
-    Mtx model, modelview;
-    Mtx44 view;
-    Camera *cam;
-}Renderer;
-
 //load the modelview matrix into matrix memory
-void LoadModelView(Renderer *ren, Mtx44 view, Camera *cam) {
+void LoadModelView(Renderer *ren, Mtx44 view) {
     guVector axis = {0, 1, 0};
     guMtxIdentity(ren->model);
-    guMtxRotAxisDeg(view, &axis, cam->rot);
+    guMtxRotAxisDeg(view, &axis, ren->cam->rot);
     guMtxTransApply(ren->model, ren->model, ren->cam->pos.x, ren->cam->pos.y, ren->cam->pos.z);
     guMtxConcat(view, ren->model, ren->modelview);
     GX_LoadPosMtxImm(ren->modelview, GX_PNMTX0);
@@ -162,9 +167,11 @@ void LoadModelView(Renderer *ren, Mtx44 view, Camera *cam) {
 //initialize worldspace buffer
 void wsInit(Worldspace *ws, size_t s) {
     ws->tris = malloc(s);
+    ws->tricnt = 0;
     ws->idx = 0;
 }
 
+//add more triangles to a big array of triangles
 void wsAppend(Worldspace *ws, Object *obj) {
     Triangle *new;
     new = malloc(obj->mdl->tricnt * sizeof(Triangle));
@@ -179,4 +186,10 @@ void wsAppend(Worldspace *ws, Object *obj) {
     ws->tricnt += obj->mdl->tricnt;
     ws->idx += obj->mdl->tricnt * sizeof(Triangle);
     free(new);
+}
+
+void wsClear(Worldspace *ws) {
+    memset(ws->tris, 0, ws->tricnt * sizeof(Triangle));
+    ws->tricnt = 0;
+    ws->idx = 0;
 }

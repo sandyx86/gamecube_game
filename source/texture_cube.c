@@ -11,14 +11,22 @@
 
 #include "../other/renderer.c"
 #include "../other/cylinder.c"
+#include "../other/plane.c"
+#include "../other/input_handler.c"
 
 #define DEFAULT_FIFO_SIZE (256 * 1024)
 #define VTX_BUFFER_SIZE 10 * sizeof(s16) * 3 * 8 // 10 tests worth
 static void *xfb[2] = {NULL, NULL}; // external framebuffer
 GXRModeObj *rmode;
 
+int color;
+void changeColor();
+void moveCam();
+Camera cam;
+Renderer ren;
+Mtx44 view; // view matrix
+
 int main(void) {
-    // int32_t xfbHeight;
     void *gp_fifo = NULL; // CPU to GP FIFO buffer for the GP's command processor
     VIDEO_Init();
     PAD_Init();
@@ -71,19 +79,16 @@ int main(void) {
     // set vertex descriptors for position color and texture
     GX_ClearVtxDesc();
     GX_SetVtxDesc(GX_VA_POS, GX_DIRECT);
-    //GX_SetVtxDesc(GX_VA_CLR0, GX_DIRECT); //seems like this has to be disabled for textures to work
     GX_SetVtxDesc(GX_VA_TEX0, GX_DIRECT);
-    //GX_SetVtxDesc(GX_VA_TEX0MTXIDX, GX_DIRECT);
 
     TPL_OpenTPLFromMemory(&tpl, (void *)textures_tpl, textures_tpl_size);
-    TPL_GetTexture(&tpl, can, &texObj); // load tpl into a texture object
+    TPL_GetTexture(&tpl, gordon, &texObj); // load tpl into a texture object
     //GX_InitTexObj(&texObj, textures_tpl, 32, 32, GX_TF_RGBA8, GX_REPEAT, GX_REPEAT, GX_FALSE);
     GX_InitTexObjWrapMode(&texObj, GX_REPEAT, GX_REPEAT);
     GX_LoadTexObj(&texObj, GX_TEXMAP0);    // load texture object into register
 
     GX_SetVtxAttrFmt(GX_VTXFMT0, GX_VA_TEX0, GX_TEX_ST, GX_F32, 0);
     GX_SetVtxAttrFmt(GX_VTXFMT0, GX_VA_POS, GX_POS_XYZ, GX_F32, 0);
-    //GX_SetVtxAttrFmt(GX_VTXFMT0, GX_VA_CLR0, GX_CLR_RGBA, GX_RGBA8, 0);
 
     GX_SetArray(GX_VA_TEX0, (void *)textures_tpl, 3 * sizeof(f32));
 
@@ -96,14 +101,12 @@ int main(void) {
     GX_SetTevOp(GX_TEVSTAGE0, GX_DECAL);
     GX_SetTevOrder(GX_TEVSTAGE0, GX_TEXCOORD0, GX_TEXMAP0, GX_COLOR0A0);
 
-    Mtx44 view; // view matrix
-
-    Camera cam = newCamera((Vec3){0.0, 0.0, 0.0}, (Vec3){0.0, 1.0, 0.0}, (Vec3){0.0, 0.0, -1.0});
-    Renderer ren;
+    cam = newCamera((Vec3){0.0, 0.0, 0.0}, (Vec3){0.0, 1.0, 0.0}, (Vec3){0.0, 0.0, -1.0});
     ren.cam = &cam;
     
     //Model the_model = buildModel(tri_vtx, tri_tx, tri_idx, tri_tx_idx, tri_idxcnt);
     Model the_model = buildModel(cylinder_vtx, cylinder_tx, cylinder_idx, cylinder_tx_idx, cylinder_idxcnt);
+    Model flat = buildModel(plane_vtx, plane_tx, plane_idx, plane_tx_idx, plane_idxcnt);
     Object the_object;
     the_object.mdl = &the_model;
     the_object.pos = (Vec3){0.0, 0.0, 0.0};
@@ -116,6 +119,13 @@ int main(void) {
     wsAppend(&ws, &the_object);
     the_object.pos = (Vec3){13.0, 0.0, 0.0};
     wsAppend(&ws, &the_object);
+
+    translateModel(&flat, (Vec3){0.0, -10.0, 0.0});
+
+    imap.parameter = &color;
+    initHandler();
+    assignFunction(PAD_BUTTON_A, moveCam);
+    assignFunction(PAD_BUTTON_B, drawModel);
     
     // game loop
     while (true) {
@@ -124,26 +134,11 @@ int main(void) {
         GX_InvalidateTexAll();
 
         PAD_ScanPads();
-        int stickX = PAD_StickX(0);
-        int stickY = PAD_StickY(0);
-        cam.rot += PAD_SubStickX(0) / 20.0;
 
-        // press A to inflate test
-        if (PAD_ButtonsDown(0) & PAD_BUTTON_A)
-        {
-        }
-
-        //press B to deflate test
-        if (PAD_ButtonsDown(0) & PAD_BUTTON_B)
-        {
-        }
-
-        //renderer stuff
-        guLookAt(view, &cam.pos, &cam.up, &cam.view);
-        moveCamera(&cam, stickX, stickY);
-        LoadModelView(&ren, view, &cam);
+        handleInput();
         
         drawModel(&ws);
+        drawModel(&flat);
      
         GX_SetZMode(GX_TRUE, GX_LEQUAL, GX_TRUE);
         GX_SetColorUpdate(GX_TRUE);
@@ -154,4 +149,19 @@ int main(void) {
         VIDEO_Flush();
         VIDEO_WaitVSync();
     }
+}
+
+void changeColor() {
+    static int c;
+    GX_SetCopyClear((GXColor){0.0, 0.0, PAD_SubStickX(0), 0xFF}, GX_MAX_Z24);
+}
+
+void moveCam() {
+    guLookAt(view, &cam.pos, &cam.up, &cam.view);
+    int stickX = PAD_StickX(0);
+    int stickY = PAD_StickY(0);
+    cam.rot += PAD_SubStickX(0) / 20.0;
+    cam.pos.x += -PAD_StickX(0)*cosf(DegToRad(cam.rot))/20.0 - PAD_StickY(0)*sinf(DegToRad(cam.rot))/20.0;
+    cam.pos.z += -PAD_StickX(0)*sinf(DegToRad(cam.rot))/20.0 + PAD_StickY(0)*cosf(DegToRad(cam.rot))/20.0;
+    LoadModelView(&ren, view);
 }
