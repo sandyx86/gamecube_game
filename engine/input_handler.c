@@ -20,7 +20,7 @@ typedef struct inputMap {
     void (*triggerL)();
     void (*triggerR)();
     void (*triggerZ)();
-    void *parameter;
+    void **parameter;
 } InputMap;
 
 InputMap imap;
@@ -65,7 +65,6 @@ void assignFunction(int button, void (*func)()) {
 //input handler
 void handleInput() {
     //only checks first controller for now
-    //maybe don't want to break, incase of simultaneous inputs
     //PAD_ScanPads();
     switch (PAD_ButtonsHeld(0)) {
     case PAD_BUTTON_A:      imap.buttonA();     break;
@@ -83,3 +82,25 @@ void handleInput() {
     default: return;
     }
 }
+
+
+//try this weird thing
+/*
+send(to, from, count)
+//register short *to, *from;
+//register count;
+{
+    register n = (count + 7) / 8;
+    switch (count % 8) {
+    case 0: do { *to = *from++;
+    case 7:      *to = *from++;
+    case 6:      *to = *from++;
+    case 5:      *to = *from++;
+    case 4:      *to = *from++;
+    case 3:      *to = *from++;
+    case 2:      *to = *from++;
+    case 1:      *to = *from++;
+            } while (--n > 0);
+    }
+}
+*/

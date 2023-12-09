@@ -9,10 +9,13 @@
 #include "textures_tpl.h"
 #include "textures.h"
 
-#include "../other/renderer.c"
-#include "../other/cylinder.c"
-#include "../other/plane.c"
-#include "../other/input_handler.c"
+#include <renderer.c>
+#include <input_handler.c>
+#include <physics.c>
+#include <player.c>
+
+#include "../models/cylinder.c"
+#include <../models/plane.c>
 
 #define DEFAULT_FIFO_SIZE (256 * 1024)
 #define VTX_BUFFER_SIZE 10 * sizeof(s16) * 3 * 8 // 10 tests worth
@@ -22,6 +25,8 @@ GXRModeObj *rmode;
 int color;
 void changeColor();
 void moveCam();
+void swapFunc();
+void *parameters[20];
 Camera cam;
 Renderer ren;
 Mtx44 view; // view matrix
@@ -39,7 +44,7 @@ int main(void) {
     VIDEO_SetNextFramebuffer(xfb[curr_fb]);
     VIDEO_SetBlack(false);
     VIDEO_Flush();
-    VIDEO_WaitVSync(); // wait for next vertical retrace (cap fps to refresh rate)
+    //VIDEO_WaitVSync(); // wait for next vertical retrace (cap fps to refresh rate)
 
     // gp_fifo must be aligned to a 32 byte boundary
     gp_fifo = memalign(32, DEFAULT_FIFO_SIZE);
@@ -122,10 +127,9 @@ int main(void) {
 
     translateModel(&flat, (Vec3){0.0, -10.0, 0.0});
 
-    imap.parameter = &color;
+    imap.parameter;
     initHandler();
-    assignFunction(PAD_BUTTON_A, moveCam);
-    assignFunction(PAD_BUTTON_B, drawModel);
+    assignFunction(PAD_BUTTON_B, swapFunc);
     
     // game loop
     while (true) {
@@ -135,10 +139,12 @@ int main(void) {
 
         PAD_ScanPads();
 
+        moveCam();
         handleInput();
         
-        drawModel(&ws);
+        drawModel((Model *)&ws);
         drawModel(&flat);
+        drawObject(&the_object);
      
         GX_SetZMode(GX_TRUE, GX_LEQUAL, GX_TRUE);
         GX_SetColorUpdate(GX_TRUE);
@@ -153,7 +159,7 @@ int main(void) {
 
 void changeColor() {
     static int c;
-    GX_SetCopyClear((GXColor){0.0, 0.0, PAD_SubStickX(0), 0xFF}, GX_MAX_Z24);
+    GX_SetCopyClear((GXColor){0.0, c++, PAD_SubStickX(0), 0xFF}, GX_MAX_Z24);
 }
 
 void moveCam() {
@@ -161,7 +167,15 @@ void moveCam() {
     int stickX = PAD_StickX(0);
     int stickY = PAD_StickY(0);
     cam.rot += PAD_SubStickX(0) / 20.0;
-    cam.pos.x += -PAD_StickX(0)*cosf(DegToRad(cam.rot))/20.0 - PAD_StickY(0)*sinf(DegToRad(cam.rot))/20.0;
-    cam.pos.z += -PAD_StickX(0)*sinf(DegToRad(cam.rot))/20.0 + PAD_StickY(0)*cosf(DegToRad(cam.rot))/20.0;
+    cam.pos.x += -stickX*cosf(DegToRad(cam.rot))/20.0 - stickY*sinf(DegToRad(cam.rot))/20.0;
+    cam.pos.z += -stickX*sinf(DegToRad(cam.rot))/20.0 + stickY*cosf(DegToRad(cam.rot))/20.0;
     LoadModelView(&ren, view);
+}
+
+void swapFunc() {
+    if (imap.buttonA != changeColor) {
+        assignFunction(PAD_BUTTON_A, changeColor);
+    } else {
+        assignFunction(PAD_BUTTON_A, moveCam);
+    }
 }

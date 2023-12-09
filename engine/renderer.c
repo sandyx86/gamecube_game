@@ -43,6 +43,7 @@ typedef struct _obj {
     Vec3 pos;
     Vec3 scale;
     //GXTexObj *txt;
+    f32 *bbox;
 } Object;
 
 Vertex buildVertex(f32 *vtx, f32 *tx, int *idx, int *tx_idx, int n) {

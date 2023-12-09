@@ -19,9 +19,9 @@ include $(DEVKITPPC)/gamecube_rules
 TARGET		:=	$(notdir $(CURDIR))
 BUILD		:=	build
 SOURCES		:=	source
-DATA		:=
+DATA		:= 
 TEXTURES	:=	textures 
-INCLUDES	:=
+INCLUDES	:=  engine
 MODELS		:= 	models
 
 #---------------------------------------------------------------------------------
@@ -42,7 +42,7 @@ LIBS	:=	-logc -lm
 # list of directories containing libraries, this must be the top level containing
 # include and lib
 #---------------------------------------------------------------------------------
-LIBDIRS	:=
+LIBDIRS	:= 
 
 #---------------------------------------------------------------------------------
 # no real need to edit anything past this point unless you need to add additional
