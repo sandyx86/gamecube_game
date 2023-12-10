@@ -113,7 +113,7 @@ clean:
 	@rm -fr $(BUILD) $(OUTPUT).elf $(OUTPUT).dol
 
 r:
-	start dolphin --debugger --exec=gc_homebrew.elf
+	start dolphin --exec=gc_homebrew.elf
 
 #---------------------------------------------------------------------------------
 else

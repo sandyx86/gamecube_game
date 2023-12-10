@@ -1,1 +1,2 @@
 make an iso
+add chef.py to the makefile to make the objects or something

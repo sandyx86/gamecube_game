@@ -42,7 +42,6 @@ typedef struct _obj {
     Model *mdl;
     Vec3 pos;
     Vec3 scale;
-    //GXTexObj *txt;
     f32 *bbox;
 } Object;
 
@@ -76,8 +75,10 @@ Model buildModel(f32 *vtx, f32 *tx, int *idx, int *tx_idx, int idxcnt) {
     return mdl;
 }
 
+u32 drawMode = GX_TRIANGLES;
+
 void drawTriangle(Triangle *tri) {
-    GX_Begin(GX_TRIANGLES, vtxfmt, 3);
+    GX_Begin(drawMode, vtxfmt, 3);
     GX_Position3f32(tri->vtx[0].x, tri->vtx[0].y, tri->vtx[0].z);
     GX_TexCoord2f32(tri->vtx[0].u, -tri->vtx[0].v);
     //GX_Color4u8(tri->vtx[0].x, tri->vtx[0].y, tri->vtx[0].z, 255);
@@ -149,8 +150,8 @@ Camera newCamera(Vec3 pos, Vec3 up, Vec3 view) {
 
 void moveCamera(Camera *cam, int stickX, int stickY) {
     //currently no look up or down
-    cam->pos.x += -PAD_StickX(0)*cosf(DegToRad(cam->rot))/20.0 - PAD_StickY(0)*sinf(DegToRad(cam->rot))/20.0;
-    cam->pos.z += -PAD_StickX(0)*sinf(DegToRad(cam->rot))/20.0 + PAD_StickY(0)*cosf(DegToRad(cam->rot))/20.0;
+    cam->pos.x += stickX*cosf(DegToRad(cam->rot))/20.0 - stickY*sinf(DegToRad(cam->rot))/20.0;
+    cam->pos.z += stickX*sinf(DegToRad(cam->rot))/20.0 + stickY*cosf(DegToRad(cam->rot))/20.0;
 }
 
 //load the modelview matrix into matrix memory
