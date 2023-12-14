@@ -14,11 +14,11 @@
 #include <physics.c>
 #include <player.c>
 
-#include "../models/cylinder.c"
-#include <../models/plane.c>
+#include <../models/cube.c>
 
 #define DEFAULT_FIFO_SIZE (256 * 1024)
 #define VTX_BUFFER_SIZE 10 * sizeof(s16) * 3 * 8 // 10 tests worth
+
 static void *xfb[2] = {NULL, NULL}; // external framebuffer
 GXRModeObj *rmode;
 
@@ -27,10 +27,25 @@ void changeColor();
 void moveCam();
 void swapFunc();
 void changeDrawMode();
+void print();
 void *parameters[20];
 Camera cam;
 Renderer ren;
 Mtx44 view; // view matrix
+
+/* TODO
+    look up / down
+    apply gravity to player
+    ability to stand on surface
+    sound
+    lighting
+    get files from disc / filesystem
+    print text to screen
+*/
+
+/* DONE
+    change input handler to if else
+*/
 
 int main(void) {
     void *gp_fifo = NULL; // CPU to GP FIFO buffer for the GP's command processor
@@ -45,7 +60,13 @@ int main(void) {
     VIDEO_SetNextFramebuffer(xfb[curr_fb]);
     VIDEO_SetBlack(false);
     VIDEO_Flush();
-    //VIDEO_WaitVSync(); // wait for next vertical retrace (cap fps to refresh rate)
+    
+    //init console, returns < 0 on error
+    if (CON_InitEx(rmode, 0, 0, rmode->fbWidth / 2, 40) < 0) {
+        return 0;
+    }
+
+    VIDEO_WaitVSync(); // wait for next vertical retrace (cap fps to refresh rate)
 
     // gp_fifo must be aligned to a 32 byte boundary
     gp_fifo = memalign(32, DEFAULT_FIFO_SIZE);
@@ -88,7 +109,7 @@ int main(void) {
     GX_SetVtxDesc(GX_VA_TEX0, GX_DIRECT);
 
     TPL_OpenTPLFromMemory(&tpl, (void *)textures_tpl, textures_tpl_size);
-    TPL_GetTexture(&tpl, gordon, &texObj); // load tpl into a texture object
+    TPL_GetTexture(&tpl, icon, &texObj); // load tpl into a texture object
     //GX_InitTexObj(&texObj, textures_tpl, 32, 32, GX_TF_RGBA8, GX_REPEAT, GX_REPEAT, GX_FALSE);
     GX_InitTexObjWrapMode(&texObj, GX_REPEAT, GX_REPEAT);
     GX_LoadTexObj(&texObj, GX_TEXMAP0);    // load texture object into register
@@ -98,7 +119,7 @@ int main(void) {
 
     GX_SetArray(GX_VA_TEX0, (void *)textures_tpl, 3 * sizeof(f32));
 
-    DCFlushRange(cylinder_vtx, 65536);
+    DCFlushRange(cube_vtx, 65536);
     DCFlushRange((void *)textures_tpl, 65536);
 
     GX_SetNumChans(1);   // set number of color channels that are output to TEV stages
@@ -109,25 +130,36 @@ int main(void) {
 
     cam = newCamera((Vec3){0.0, 0.0, 0.0}, (Vec3){0.0, 1.0, 0.0}, (Vec3){0.0, 0.0, -1.0});
     ren.cam = &cam;
+    ren.drawMode = GX_TRIANGLES;
     
     //Model the_model = buildModel(tri_vtx, tri_tx, tri_idx, tri_tx_idx, tri_idxcnt);
-    Model the_model = buildModel(cylinder_vtx, cylinder_tx, cylinder_idx, cylinder_tx_idx, cylinder_idxcnt);
-    Model flat = buildModel(plane_vtx, plane_tx, plane_idx, plane_tx_idx, plane_idxcnt);
-    Object the_object;
-    the_object.mdl = &the_model;
-    the_object.pos = (Vec3){0.0, 0.0, -10.0};
-    translateModel(the_object.mdl, the_object.pos);
+    //Model the_model = buildModel(rounded_vtx, rounded_tx, rounded_idx, rounded_tx_idx, rounded_idxcnt);
+    //Model flat = buildModel(plane_vtx, plane_tx, plane_idx, plane_tx_idx, plane_idxcnt);
+
+    SObject obj;
+    obj.va = cube_vtx;
+    obj.vt = cube_tx;
+    obj.idx = cube_idx;
+    obj.txidx = cube_tx_idx;
+    obj.pos = (Vec3){0.0, 0.0, 0.0};
+    obj.vtxcnt = 72;
+    obj.idxcnt = cube_idxcnt;
+    obj.bbox = sGenerateBoundingBox(&obj);
+
+    SObject objarr[10];
+    for (int i = 0; i < 10; i++) {
+        objarr[i] = obj;
+        obj.pos.x += 60.0f;
+    }
 
     Worldspace ws;
     wsInit(&ws, 1 << 16);
     
-    //translateModel(&flat, (Vec3){0.0, -10.0, 0.0});
-
-    generateBoundingBox(&the_object);
 
     initHandler();
-    assignFunction(PAD_BUTTON_B, changeDrawMode);
-    
+    assignFunction(PAD_BUTTON_A, changeDrawMode);
+    //assignFunction(PAD_BUTTON_B, print);
+
     int r,g,b;
 
     // game loop
@@ -141,17 +173,14 @@ int main(void) {
         acceleratePlayer();
         movePlayerByCam(ren.cam);
         moveCam(); //binds camera to player
-        handleInput();
         
-        //drawModel((Model *)&ws);
-        //drawModel(&flat);
+        handleInput();
 
-        checkCollision(&player, &the_object);
-            
-    
+        //ren.drawMode = GX_LINES;
+        for (int i = 0; i < 10; i++) {
+            drawSObject(&ren ,&objarr[i]);
+        }
 
-        drawObject(&the_object);
-     
         GX_SetZMode(GX_TRUE, GX_LEQUAL, GX_TRUE);
         GX_SetColorUpdate(GX_TRUE);
         GX_CopyDisp(xfb[curr_fb], GX_TRUE);
@@ -178,21 +207,15 @@ void moveCam() {
     LoadModelView(&ren, view);
 }
 
-void swapFunc() {
-    if (imap.buttonA != changeColor) {
-        assignFunction(PAD_BUTTON_A, changeColor);
+void changeDrawMode() {
+    if (ren.drawMode == GX_TRIANGLES) {
+        ren.drawMode = GX_LINES;
     } else {
-        assignFunction(PAD_BUTTON_A, moveCam);
+        ren.drawMode = GX_TRIANGLES;
     }
 }
 
-void changeDrawMode() {
-    switch(drawMode) {
-        case GX_TRIANGLES:
-            drawMode = GX_LINES;
-        case GX_LINES:
-            drawMode = GX_TRIANGLES;
-        default:
-            return;
-    }
+void print() {
+    __asm__("");
+    __asm__("b LoadModelView");
 }

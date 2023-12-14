@@ -1,6 +1,7 @@
 #pragma once
 
 #include <gccore.h>
+#include <stdarg.h>
 
 int controllers = 1;
 
@@ -62,26 +63,27 @@ void assignFunction(int button, void (*func)()) {
     }
 }
 
+//maybe make the input handler into a state machine
+//to handle button combos
+#define or(button) else if (PAD_ButtonsDown(0) & button)
 //input handler
 void handleInput() {
     //only checks first controller for now
     //PAD_ScanPads();
-    switch (PAD_ButtonsHeld(0)) {
-    case PAD_BUTTON_A:      imap.buttonA();     break;
-    case PAD_BUTTON_B:      imap.buttonB();     break;
-    case PAD_BUTTON_X:      imap.buttonX();     break;
-    case PAD_BUTTON_Y:      imap.buttonY();     break;
-    case PAD_BUTTON_UP:     imap.buttonUp();    break;
-    case PAD_BUTTON_DOWN:   imap.buttonDown();  break;
-    case PAD_BUTTON_LEFT:   imap.buttonLeft();  break;
-    case PAD_BUTTON_RIGHT:  imap.buttonRight(); break;
-    case PAD_BUTTON_START:  imap.buttonStart(); break;
-    case PAD_TRIGGER_L:     imap.triggerL();    break;
-    case PAD_TRIGGER_R:     imap.triggerR();    break;
-    case PAD_TRIGGER_Z:     imap.triggerZ();    break;
-    default: return;
-    }
+    if (PAD_ButtonsDown(0) & PAD_BUTTON_A) {imap.buttonA();}
+    or (PAD_BUTTON_B)       {imap.buttonB();}
+    or (PAD_BUTTON_X)       {imap.buttonX();}
+    or (PAD_BUTTON_Y)       {imap.buttonY();}
+    or (PAD_BUTTON_UP)      {imap.buttonUp();}
+    or (PAD_BUTTON_DOWN)    {imap.buttonDown();}
+    or (PAD_BUTTON_LEFT)    {imap.buttonLeft();}
+    or (PAD_BUTTON_RIGHT)   {imap.buttonRight();}
+    or (PAD_BUTTON_START)   {imap.buttonStart();}
+    or (PAD_TRIGGER_L)      {imap.triggerL();}
+    or (PAD_TRIGGER_R)      {imap.triggerR();}
+    or (PAD_TRIGGER_Z)      {imap.triggerZ();}
 }
+#undef or
 
 
 //try this weird thing

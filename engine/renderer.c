@@ -20,6 +20,7 @@ typedef struct _renderer {
     Mtx model, modelview;
     Mtx44 view;
     Camera *cam;
+    u32 drawMode;
     //int vtxfmt;
 }Renderer;
 
@@ -44,6 +45,35 @@ typedef struct _obj {
     Vec3 scale;
     f32 *bbox;
 } Object;
+
+typedef struct _sobj {
+    Vec3 pos; //position
+    Vec3 scale; //scale
+    float *bbox; //bounding box
+    float *va; //vertex array
+    float *vt; //texture coord array
+    int *idx; //vertex index array
+    int *txidx; //texcoord index array
+    int vtxcnt; //vertex count
+    int idxcnt; //vertex index count
+    int txidxcnt; //texcoord index count
+} SObject;
+
+void drawSObject(Renderer *r, SObject *obj) {
+    GX_Begin(r->drawMode, vtxfmt, obj->idxcnt);
+        for (int i = 0; i < obj->idxcnt; i++) {
+            float x, y, z;
+            float s, t;
+            x = obj->va[0+(obj->idx[i]-1)*3] + obj->pos.x;
+            y = obj->va[1+(obj->idx[i]-1)*3] + obj->pos.y;;
+            z = obj->va[2+(obj->idx[i]-1)*3] + obj->pos.z;;
+            s = obj->vt[0+(obj->txidx[i]-1)*2];
+            t = obj->vt[1+(obj->txidx[i]-1)*2];
+            GX_Position3f32(x, y, z);
+            GX_TexCoord2f32(s, -t);
+        }
+    GX_End();
+}
 
 Vertex buildVertex(f32 *vtx, f32 *tx, int *idx, int *tx_idx, int n) {
     Vertex v;
@@ -75,10 +105,8 @@ Model buildModel(f32 *vtx, f32 *tx, int *idx, int *tx_idx, int idxcnt) {
     return mdl;
 }
 
-u32 drawMode = GX_TRIANGLES;
-
 void drawTriangle(Triangle *tri) {
-    GX_Begin(drawMode, vtxfmt, 3);
+    GX_Begin(GX_TRIANGLES, vtxfmt, 3);
     GX_Position3f32(tri->vtx[0].x, tri->vtx[0].y, tri->vtx[0].z);
     GX_TexCoord2f32(tri->vtx[0].u, -tri->vtx[0].v);
     //GX_Color4u8(tri->vtx[0].x, tri->vtx[0].y, tri->vtx[0].z, 255);
